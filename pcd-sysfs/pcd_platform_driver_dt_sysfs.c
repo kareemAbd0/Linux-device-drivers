@@ -33,6 +33,72 @@ static struct file_operations pcdev_fops = {
 };
 
 
+/* sysfs attribute show and store functions */
+ssize_t show_max_size(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    /*get access to device's private data */
+    struct pcdev_private_data *dev_data = dev_get_drvdata(dev->parent);
+    int ret = sprintf(buf, "%d", dev_data->pdata.size);
+
+
+
+    return ret;
+}
+ssize_t store_max_size(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int ret;
+    long result;
+
+    /*get access to device's private data */
+    struct pcdev_private_data *dev_data = dev_get_drvdata(dev->parent);
+
+    ret = kstrtoul(buf, 10, &result);
+    if (ret < 0) {
+        return ret;
+    }
+    dev_data->pdata.size = result;
+    dev_data->buffer = krealloc(dev_data->buffer, dev_data->pdata.size, GFP_KERNEL);
+
+
+    return count;
+}
+ssize_t show_serial_number(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    /*get access to device's private data */
+    struct pcdev_private_data *dev_data = dev_get_drvdata(dev->parent);
+
+   int ret = sprintf(buf, "%s", dev_data->pdata.serial_number);
+
+
+    return ret;
+}
+
+
+
+
+/*create 2 variables for device structs device_attributes  */
+DEVICE_ATTR(max_size, S_IRUGO | S_IWUSR,show_max_size,store_max_size);
+DEVICE_ATTR(serial_number, S_IRUGO, show_serial_number, NULL);
+
+
+
+/* create a file for sysfs attributes */
+int pcd_sysfs_file_create(struct device *dev)
+{
+    int ret;
+    ret = device_create_file(dev, &dev_attr_max_size);
+    if (ret < 0) {
+        pr_info("device_create_file failed\n");
+        return ret;
+    }
+    ret = device_create_file(dev, &dev_attr_serial_number);
+    if (ret < 0) {
+        pr_info("device_create_file failed\n");
+        return ret;
+    }
+    return 0;
+}
+
 
 /* gets called when device is removed from the system */
 
@@ -180,6 +246,13 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 
     pcdrv_data.total_devices++;
 
+    ret = pcd_sysfs_file_create(pcdrv_data.mpchar_device);
+    if (ret < 0) {
+        device_destroy(pcdrv_data.mpchar_class, dev_data->device_number);
+        return ret;
+    }
+
+
     pr_info("driver: the probe was successful\n");
 
     return 0;
@@ -194,10 +267,10 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 
 
 struct platform_device_id pcdevs_ids[] = {
-        {.name = "pcdev-A1x", .driver_data = PCDEV_A_CONF},
-        {.name = "pcdev-B1x", .driver_data = PCDEV_B_CONF},
-        {.name = "pcdev-C1x", .driver_data = PCDEV_C_CONF},
-        {.name = "pcdev-D1x", .driver_data = PCDEV_D_CONF},
+        {.name = "pseudo_platform-Z1", .driver_data = PCDEV_A_CONF},
+        {.name = "pseudo_platform-A1", .driver_data = PCDEV_B_CONF},
+        {.name = "pseudo_platform-B1", .driver_data = PCDEV_C_CONF},
+        {.name = "pseudo_platform-R1", .driver_data = PCDEV_D_CONF},
         {}
 };
 
@@ -242,9 +315,12 @@ static int __init pcdev_platform_init(void)
         printk("driver: failed to allocate device number\n");
         return ret;
     }
+
     /* 2- create device class under /sys/class */
 
-    pcdrv_data.mpchar_class = class_create(THIS_MODULE,"mpchar_class");
+
+    //pcdrv_data.mpchar_class = class_create(THIS_MODULE,"mpchar_class");
+    pcdrv_data.mpchar_class = class_create("mpchar_class");
     if(IS_ERR(pcdrv_data.mpchar_class)){
         printk("driver: class creation failed\n");
         ret = PTR_ERR(pcdrv_data.mpchar_class);
