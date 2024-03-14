@@ -5,17 +5,6 @@
 #ifndef LCD_PLATFORM_DRIVER_LCD_PLATFORM_DRIVER_H
 #define LCD_PLATFORM_DRIVER_LCD_PLATFORM_DRIVER_H
 
-#include <linux/module.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/kdev_t.h>
-#include <linux/uaccess.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/mod_devicetable.h>
-#include <linux/of.h>
-#include <linux/gpio/consumer.h>
 
 
 
@@ -26,17 +15,12 @@ struct lcd_dev_data{
 };
 
 /*holds driver specific data*/
-struct gpio_drv_data {
+struct lcd_drv_data {
 
     int total_devices;
     struct class *class_gpio;
     struct device **devices;
 
 };
-
-
-
-
-
 
 #endif //LCD_PLATFORM_DRIVER_LCD_PLATFORM_DRIVER_H
