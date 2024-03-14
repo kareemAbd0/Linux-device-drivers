@@ -1,4 +1,8 @@
-obj-m := gpio-sysfs.o
+obj-m := lcd_module.o
+
+
+lcd_module-objs += lcd_platform_driver.o  lcd.o gpio.o
+
 SRC := $(shell pwd)
 
 all:
