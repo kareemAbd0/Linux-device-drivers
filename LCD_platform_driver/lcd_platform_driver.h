@@ -11,6 +11,10 @@
 /*holds device specific data*/
 struct lcd_dev_data{
     char label[20];
+    char text[30];
+    int x;
+    int y;
+    int cmd;
     struct gpio_desc *desc;
 };
 
