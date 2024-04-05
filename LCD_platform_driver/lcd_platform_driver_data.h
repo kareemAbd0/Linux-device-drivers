@@ -8,22 +8,35 @@
 
 
 
-/*holds device specific data*/
-struct lcd_dev_data{
+/*holds gpio device specific data*/
+struct lcd_gpio_dev_data{
     char label[20];
+    struct gpio_desc *desc;
+};
+
+
+
+
+/*holds lcd device specific data*/
+struct lcd_dev_data {
+
     char text[30];
     int x;
     int y;
     int cmd;
-    struct gpio_desc *desc;
+
 };
+
+
 
 /*holds driver specific data*/
 struct lcd_drv_data {
 
     int total_devices;
     struct class *class_gpio;
-    struct device **devices;
+    struct lcd_gpio_dev_data **gpio_devices;
+    struct device *lcd_device;
+    struct lcd_dev_data *lcd_dev_data;
 
 };
 

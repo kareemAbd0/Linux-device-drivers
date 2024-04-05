@@ -13,16 +13,24 @@
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
 #include "lcd.h"
-#include "lcd_platform_driver.h"
-
-
-
+#include "lcd_platform_driver_data.h"
 
 struct lcd_drv_data lcd_drv_data;
 
 
 
+
+
 ssize_t lcdcmd_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
+
+    /*get the driver data*/
+
+    struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
+
+
+    /*set the command*/
+
+    LCD_send_command(*buf,drv_data);
 
     return 0;
 }
@@ -30,7 +38,11 @@ ssize_t lcdcmd_store(struct device *dev, struct device_attribute *attr, const ch
 
 ssize_t lcdscroll_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
 
-    return 0;
+
+    pr_info("lcdscroll_store: received data: %s\n", buf);
+
+    return count; // Acknowledge the write operation
+
 }
 
 
@@ -43,7 +55,28 @@ ssize_t lcdpxy_show(struct device *dev, struct device_attribute *attr, char *buf
 
 ssize_t lcdpxy_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
 
-    return 0;
+
+    /*temp testing */
+
+    int ret = 0;
+    /*get the driver data*/
+    pr_info("debugging here LCD xy 1");
+
+
+    struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
+
+    pr_info("debugging here LCD xy 2");
+
+    /*temp gpio test */
+
+    if(sysfs_streq(buf, "0")) {
+        tester(drv_data);
+    } else{
+       ret = -EINVAL;
+    }
+
+    pr_info("debugging here LCD xy 3");
+    return ret? ret : count;
 }
 
 
@@ -56,6 +89,16 @@ return sprintf(buf, " current text: %s\n", dev_data->text);
 
 
 ssize_t lcdtxt_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
+
+    /*get the driver data*/
+    struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
+
+    unsigned char u8_data = *buf;
+    /*set the text*/
+    strcpy(drv_data->lcd_dev_data->text,buf);
+    /*display the text*/
+
+    LCD_display_string(u8_data,drv_data);
 
     return 0;
 }
@@ -103,106 +146,106 @@ static const struct attribute_group *lcd_attr_groups[] = {
 
 /*gets called when names are matched*/
 int lcd_probe(struct platform_device *pdev){
-
     const char *name;
     int i = 0;
     int ret;
-    /*get the parent device tree node*/
     struct device_node *parent = pdev->dev.of_node;
-    /*get the child device tree node*/
     struct device_node *child = NULL;
-
     struct device *dev = &pdev->dev;
+    struct lcd_gpio_dev_data *gpio_dev_data;
 
-    struct lcd_dev_data *dev_data;
-
+    // Get total number of child nodes
     lcd_drv_data.total_devices = of_get_child_count(parent);
 
+    // Check if there are child nodes
     if(lcd_drv_data.total_devices < 0){
         dev_err(dev, "No child nodes found\n");
         return -ENODEV;
     }
 
+    // Log total number of child nodes
     dev_info(dev,"Total child nodes found: %d\n", lcd_drv_data.total_devices);
 
-    /*allocate memory for the devices*/
-    lcd_drv_data.devices = devm_kzalloc(dev, sizeof(struct device *) * lcd_drv_data.total_devices, GFP_KERNEL);
-    if(!lcd_drv_data.devices){
+    // Allocate memory for the gpio devices
+    lcd_drv_data.gpio_devices = devm_kzalloc(dev, sizeof(struct lcd_gpio_dev_data *) * lcd_drv_data.total_devices, GFP_KERNEL);
+
+    // Check if memory allocation was successful
+    if(!lcd_drv_data.gpio_devices){
         dev_err(dev, "Memory allocation failed\n");
         return -ENOMEM;
     }
-
-
-    /*allocate memory for driver data, this function checks for enabled children of a parent*/
+    // Allocate memory for driver data
     for_each_child_of_node(parent,child){
+        gpio_dev_data = devm_kzalloc(dev, sizeof(struct lcd_gpio_dev_data), GFP_KERNEL);
 
-        /*allocate memory for device data*/
-        dev_data = devm_kzalloc(dev, sizeof(struct lcd_dev_data), GFP_KERNEL);
-        if (!dev_data){
+        // Check if memory allocation was successful
+        if (!gpio_dev_data){
             dev_info(dev,"Memory allocation failed ");
         }
 
-        /*get the label from the device tree*/
+
+        // Get the label from the device tree
         if(of_property_read_string(child, "label", &name))
         {
             pr_err("label not found\n");
-            snprintf(dev_data->label, sizeof(dev_data->label), "unknown-pin%d", i);
+            snprintf(gpio_dev_data->label, sizeof(gpio_dev_data->label), "unknown-pin%d", i);
         } else{
-            strcpy(dev_data->label,name);
-            pr_err("pin label: %s\n", dev_data->label);
+            strcpy(gpio_dev_data->label, name);
+            pr_err("pin label: %s\n", gpio_dev_data->label);
         }
 
-        /*get the gpio descriptor from the device tree*/
-        dev_data->desc = devm_fwnode_get_gpiod_from_child(dev, "lcd", &child->fwnode, GPIOD_ASIS, dev_data->label);
-        if(IS_ERR(dev_data->desc)){
-            ret = PTR_ERR(dev_data->desc);
-            if(ret != -ENOENT){
+        // Get the gpio descriptor from the device tree
+        gpio_dev_data->desc = devm_fwnode_get_gpiod_from_child(dev, "rpi", &child->fwnode, GPIOD_ASIS, gpio_dev_data->label);
+
+        // Check if getting gpio descriptor was successful
+        if(IS_ERR(gpio_dev_data->desc)){
+            ret = PTR_ERR(gpio_dev_data->desc);
+            if(ret == -ENOENT){
                 dev_err(dev, "Failed to get gpio descriptor\n");
             }
+
             return ret;
         }
-        /*set direction of the gpio*/
-        ret = gpiod_direction_output(dev_data->desc, 0);
+
+        // Set direction of the gpio
+        ret = gpiod_direction_output(gpio_dev_data->desc, 0);
+
+        // Check if setting direction was successful
         if(ret){
             pr_err("failed to set direction\n");
             return ret;
         }
 
-        /*create devices under /sys/class/bone-gpio and bind everything together */
-        lcd_drv_data.devices[i] = device_create_with_groups(lcd_drv_data.class_gpio, dev, 0, dev_data, lcd_attr_groups,dev_data->label);
+        // Populate driver data with gpio devices
+        lcd_drv_data.gpio_devices[i] = gpio_dev_data;
 
-        if (IS_ERR(lcd_drv_data.devices[i])){
-            dev_err(dev, "device create failed\n");
-            return PTR_ERR(lcd_drv_data.devices[i]);
-        }
+
 
         i++;
-
     }
 
+    /* Create lcd device under /sys/class/bone-gpio and bind everything together */
+    lcd_drv_data.lcd_device = device_create_with_groups(lcd_drv_data.class_gpio, dev, 0, &lcd_drv_data, lcd_attr_groups,"lcd");
 
-    lcd_drv_data.devices[i] = device_create_with_groups(lcd_drv_data.class_gpio, dev, 0, dev_data, lcd_attr_groups,"lcd");
-    if (IS_ERR(lcd_drv_data.devices[i])){
+    /* Check if device creation was successful */
+    if (IS_ERR(lcd_drv_data.lcd_device)){
         dev_err(dev, "device create failed\n");
-        return PTR_ERR(lcd_drv_data.devices[i]);
+        return PTR_ERR(lcd_drv_data.lcd_device);
     }
 
+
+    /*initialize the lcd*/
+    LCD_init(&lcd_drv_data);
 
 
     return  0;
-
-
 }
-
 
 /*gets called when devices are removed*/
 int lcd_remove(struct platform_device *pdev){
 
-    int i;
-    for(i = 0; i < lcd_drv_data.total_devices; i++){
-        device_unregister(lcd_drv_data.devices[i]);
-    }
-    return  0;
+        device_unregister(lcd_drv_data.lcd_device);
+        return  0;
 }
 
 

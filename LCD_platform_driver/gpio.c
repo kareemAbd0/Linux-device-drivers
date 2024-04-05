@@ -3,7 +3,6 @@
 //
 
 
-#include "err.h"
 #include "gpio.h"
 
 
