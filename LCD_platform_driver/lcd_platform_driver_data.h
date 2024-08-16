@@ -15,18 +15,15 @@ struct lcd_gpio_dev_data{
 };
 
 
-
-
 /*holds lcd device specific data*/
 struct lcd_dev_data {
 
     char text[30];
     int x;
     int y;
-    int cmd;
+    long cmd;
 
 };
-
 
 
 /*holds driver specific data*/

@@ -1,7 +1,7 @@
-obj-m := lcd_module.o
+obj-m := keypad_module.o
 
 
-lcd_module-objs += lcd_platform_driver.o  lcd.o
+keypad_module-objs += keypad_platform_driver.o  keypad.o
 
 SRC := $(shell pwd)
 

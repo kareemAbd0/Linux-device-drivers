@@ -24,22 +24,45 @@ struct lcd_drv_data lcd_drv_data;
 ssize_t lcdcmd_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
 
     /*get the driver data*/
-
     struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
 
+    /*convert and store the command*/
+    if  (kstrtol(buf,0,&drv_data->lcd_dev_data->cmd)){
+        pr_err("wrong command\n");
+        return -EINVAL;
+    }
 
-    /*set the command*/
+    /*send the command*/
+    if (LCD_send_command(drv_data->lcd_dev_data->cmd,drv_data) < 0){
+        pr_err("LCD command failed\n");
+        return -ENODEV;
+    }
 
-    LCD_send_command(*buf,drv_data);
-
-    return 0;
+    return count;
 }
 
 
 ssize_t lcdscroll_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
 
 
-    pr_info("lcdscroll_store: received data: %s\n", buf);
+    struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
+
+    if (sysfs_streq(buf,"on")){
+    if (LCD_send_command(0x18,drv_data) < 0){
+            pr_err("LCD scroll failed\n");
+            return -ENODEV;
+        }
+    } else if (sysfs_streq(buf,"off")){
+        if (LCD_send_command(0x1C,drv_data) < 0){
+            pr_err("LCD scroll failed\n");
+            return -ENODEV;
+        }
+    } else{
+        return -EINVAL;
+    }
+
+
+
 
     return count; // Acknowledge the write operation
 
@@ -59,11 +82,12 @@ ssize_t lcdpxy_store(struct device *dev, struct device_attribute *attr, const ch
     /*temp testing */
 
     int ret = 0;
+    struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
+
     /*get the driver data*/
     pr_info("debugging here LCD xy 1");
 
 
-    struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
 
     pr_info("debugging here LCD xy 2");
 
@@ -90,7 +114,6 @@ return sprintf(buf, " current text: %s\n", dev_data->text);
 
 ssize_t lcdtxt_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
 
-    /*get the driver data*/
     struct lcd_drv_data *drv_data = dev_get_drvdata(dev);
 
     unsigned char u8_data = *buf;
@@ -98,7 +121,10 @@ ssize_t lcdtxt_store(struct device *dev, struct device_attribute *attr, const ch
     strcpy(drv_data->lcd_dev_data->text,buf);
     /*display the text*/
 
-    LCD_display_string(u8_data,drv_data);
+    if  ((LCD_display_string(buf,drv_data) < 0)){
+        pr_err("LCD text failed\n");
+        return -ENODEV;
+    }
 
     return 0;
 }
@@ -235,7 +261,11 @@ int lcd_probe(struct platform_device *pdev){
 
 
     /*initialize the lcd*/
-    LCD_init(&lcd_drv_data);
+
+    if (LCD_init(&lcd_drv_data) < 0){
+        pr_err("LCD initialization failed\n");
+        return -ENODEV;
+    }
 
 
     return  0;
