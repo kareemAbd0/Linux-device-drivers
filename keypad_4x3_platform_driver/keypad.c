@@ -48,13 +48,10 @@ uint8_t keypad_read(struct keypad_drv_data *KeypadDrvData) {
     char rows[ROWS] = {R1_PIN, R2_PIN, R3_PIN, R4_PIN};
     int i = 0, j = 0;
 
-    pr_info("started reading keypad\n");
 
     for (i = 0; i < COLS; i++) {
-        pr_info("inside col loop\n");
         gpiod_set_value(KeypadDrvData->gpio_devices[coloms[i]]->desc, 0);
         for (j = 0; j < ROWS; j++) {
-                pr_info("inside row loop\n");
             if (gpiod_get_value(KeypadDrvData->gpio_devices[rows[j]]->desc) == 0) {
                 msleep(DEBOUNCE_DELAY);
                 if (gpiod_get_value(KeypadDrvData->gpio_devices[rows[j]]->desc) == 0) {
@@ -66,11 +63,13 @@ uint8_t keypad_read(struct keypad_drv_data *KeypadDrvData) {
 
                     /*uncomment when hardware and pullup resistors are available*/
 
-                    // while (gpiod_get_value(KeypadDrvData->gpio_devices[rows[j]]->desc) == 0) {
-                    //     pr_info("inside release loop\n");
-                    //
-                    //     msleep(DEBOUNCE_DELAY);
-                    // }
+                    while (gpiod_get_value(KeypadDrvData->gpio_devices[rows[j]]->desc) == 0) {
+                        pr_info("inside release loop\n");
+
+                        msleep(DEBOUNCE_DELAY);
+                    }
+
+                    pr_info("read key %c\n", KeypadDrvData->keypad_dev_data->current_char_input);
 
                     gpiod_set_value(KeypadDrvData->gpio_devices[coloms[i]]->desc, 1);
 

@@ -12,13 +12,13 @@
 #define HIGH 1
 #define LOW 0
 
-#define R1_PIN 0
-#define R2_PIN 1
-#define R3_PIN 2
-#define R4_PIN 3
-#define C1_PIN 4
-#define C2_PIN 5
-#define C3_PIN 6
+#define C1_PIN 0
+#define C2_PIN 1
+#define C3_PIN 2
+#define R1_PIN 3
+#define R2_PIN 4
+#define R3_PIN 5
+#define R4_PIN 6
 
 #define DEBOUNCE_DELAY 10
 
